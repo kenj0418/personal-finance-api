@@ -20,12 +20,12 @@ const updateBalances = (accounts, balances) => {
 
     if (
       syncAccount &&
-      !amountsAreEqual(syncAccount.balance, existingAcct.principal)
+      !amountsAreEqual(-syncAccount.balance, existingAcct.principal)
     ) {
       console.log(`updating ${existingAcct.title} to ${syncAccount.balance}`)
       updatedAccounts.push({
         ...existingAcct,
-        principal: syncAccount.balance,
+        principal: -syncAccount.balance,
       })
     } else {
       updatedAccounts.push({ ...existingAcct })
@@ -69,6 +69,18 @@ const syncAccounts = async (_req, res) => {
   }
 }
 
+const getAccounts = async (_req, res) => {
+  try {
+    const results = await accountDb.getAccounts()
+    res.status(200).send(results)
+  } catch (ex) {
+    const errorMsg = "Error getting accounts"
+    console.error(errorMsg, ex)
+    res.status(500).send(errorMsg)
+  }
+}
+
 module.exports = {
+  getAccounts,
   syncAccounts,
 }

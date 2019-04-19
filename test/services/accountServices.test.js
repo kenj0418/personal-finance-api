@@ -8,27 +8,83 @@ const accountProvider = require("../../src/accounts/accountProvider")
 const accountServices = require("../../src/services/accountServices")
 
 describe("accountServices", () => {
-  describe("syncAccounts", () => {
-    let req, res
-    let mockBalances, mockGetAccounts, mockPutAccounts
+  let req, res
+  let mockBalances, mockGetAccounts, mockPutAccounts
 
-    beforeEach(() => {
-      mockBalances = sinon.stub(accountProvider, "getBalances")
-      mockGetAccounts = sinon.stub(accountDb, "getAccounts")
-      mockPutAccounts = sinon.stub(accountDb, "putAccounts")
+  beforeEach(() => {
+    mockBalances = sinon.stub(accountProvider, "getBalances")
+    mockGetAccounts = sinon.stub(accountDb, "getAccounts")
+    mockPutAccounts = sinon.stub(accountDb, "putAccounts")
 
-      req = httpMocks.createRequest({
-        method: "POST",
-        query: {},
-      })
-
-      res = httpMocks.createResponse({
-        eventEmitter: require("events").EventEmitter,
-      })
+    req = httpMocks.createRequest({
+      query: {},
     })
 
-    afterEach(() => {
-      sinon.restore()
+    res = httpMocks.createResponse({
+      eventEmitter: require("events").EventEmitter,
+    })
+  })
+
+  afterEach(() => {
+    sinon.restore()
+  })
+
+  const createTestAccount = () => {
+    return {
+      id: randomString(),
+      title: randomString(),
+      interest: randomNumber(),
+      principal: randomNumber() * 100,
+      payment: randomNumber() * 100,
+    }
+  }
+
+  describe("getAccounts", () => {
+    beforeEach(() => {
+      req.method = "GET"
+    })
+
+    it("error getting accounts from database", (done) => {
+      mockGetAccounts.throws(randomString())
+
+      res.on("end", () => {
+        try {
+          expect(res.statusCode).to.equal(500)
+          done()
+        } catch (ex) {
+          done(ex)
+        }
+      })
+
+      accountServices.getAccounts(req, res)
+    })
+
+    it("success getting accounts", (done) => {
+      const testAccounts = [
+        createTestAccount(),
+        createTestAccount(),
+        createTestAccount(),
+      ]
+
+      mockGetAccounts.returns(testAccounts)
+
+      res.on("end", () => {
+        try {
+          expect(res.statusCode).to.equal(200)
+          expect(res._getData()).to.deep.equal(testAccounts)
+          done()
+        } catch (ex) {
+          done(ex)
+        }
+      })
+
+      accountServices.getAccounts(req, res)
+    })
+  })
+
+  describe("syncAccounts", () => {
+    beforeEach(() => {
+      req.method = "POST"
     })
 
     const createTestBalance = (name, balance = randomNumber() * 100) => {
@@ -37,16 +93,6 @@ describe("accountServices", () => {
         name,
         bank: randomString(),
         balance,
-      }
-    }
-
-    const createTestAccount = () => {
-      return {
-        id: randomString(),
-        title: randomString(),
-        interest: randomNumber(),
-        principal: randomNumber() * 100,
-        payment: randomNumber() * 100,
       }
     }
 
