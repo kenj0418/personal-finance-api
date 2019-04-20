@@ -151,8 +151,8 @@ describe("accountServices", () => {
         createTestBalance(testAccounts[1].title),
       ]
       const expectedNewDb = [
-        testAccounts[0],
-        { ...testAccounts[1], principal: testBalances[1].balance },
+        { ...testAccounts[0], principal: -testAccounts[0].principal },
+        { ...testAccounts[1], principal: -testBalances[1].balance },
       ]
 
       mockBalances.returns(testBalances)
@@ -198,7 +198,7 @@ describe("accountServices", () => {
     it("new account, no action taken", (done) => {
       const testAccounts = [createTestAccount()]
       const testBalances = [
-        createTestBalance(testAccounts[0].title, testAccounts[0].principal),
+        createTestBalance(testAccounts[0].title, -testAccounts[0].principal),
         createTestBalance(randomString()),
       ]
 
