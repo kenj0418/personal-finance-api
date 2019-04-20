@@ -23,7 +23,7 @@ const calculateAmortization = (req, res) => {
   }
 }
 
-const paydownDebts = (req, res) => {
+const paydownDebts = async (req, res) => {
   if (!req.query.payment) {
     res.status(400).send("principal, rate, and payment are required")
     return
@@ -32,7 +32,7 @@ const paydownDebts = (req, res) => {
   const payment = parseFloat(req.query.payment)
 
   try {
-    const accounts = accountDb.getAccounts()
+    const accounts = await accountDb.getAccounts()
     const paydownResult = loanCalculator.paydownDebts(accounts, payment)
     res.status(200).json(paydownResult)
   } catch (ex) {

@@ -5,8 +5,7 @@ const round = (n) => {
   return -0.005 < rounded && rounded < 0.005 ? 0 : rounded
 }
 
-const calculateNextPayment = (prevPayment, currRate, totalPayment) => {
-  const oldPrincipal = prevPayment.newPrincipal
+const calculateNextPayment = (oldPrincipal, currRate, totalPayment) => {
   const interestPayment = round(oldPrincipal * currRate)
   const maximumPayment = round(oldPrincipal + interestPayment)
   const payment = maximumPayment < totalPayment ? maximumPayment : totalPayment
@@ -32,101 +31,129 @@ const calculateAmortization = (principal, rate, payment) => {
     newPrincipal: principal,
   }
 
-  while (currPayment.newPrincipal > 0 && amort.length < 1000) {
-    currPayment = calculateNextPayment(currPayment, currRate, payment)
+  while (currPayment.newPrincipal > 0 && amort.length < 500) {
+    currPayment = calculateNextPayment(
+      currPayment.newPrincipal,
+      currRate,
+      payment
+    )
     amort.push(currPayment)
   }
 
   return amort
 }
 
-const paydownDebts = (accounts, payment) => {
-  //todo need to calculate
-  //sort accounts by interest
-  //pay the minimum on each (throw if not enough to cover it)
-  //apply the rest to the highest rate acct
-  //when one is paid off, then continue (having more to apply to the next highest rate acct)
-  //stop after 12 months if not enough to make progress, continue for up to 500 months otherwise
+const sortAccountsByInterestRate = (accounts) => {
+  return [...accounts].sort((a, b) => {
+    return b.interest - a.interest
+  })
+}
 
-  const tempData = {
-    accounts: ["Account 1", "Another Acct", "Car Loan", "Something"],
-    payments: [
-      {
-        month: 0,
-        "Account 1": 100,
-        "Another Acct": 50,
-        "Car Loan": 200,
-        Something: 111,
-      },
-      {
-        month: 1,
-        "Account 1": 100,
-        "Another Acct": 50,
-        "Car Loan": 200,
-        Something: 111,
-      },
-      {
-        month: 2,
-        "Account 1": 100,
-        "Another Acct": 50,
-        "Car Loan": 200,
-        Something: 111,
-      },
-      {
-        month: 3,
-        "Account 1": 100,
-        "Another Acct": 50,
-        "Car Loan": 200,
-        Something: 111,
-      },
-      {
-        month: 4,
-        "Account 1": 100,
-        "Another Acct": 50,
-        "Car Loan": 100,
-        Something: 500,
-      },
-    ],
-    principal: [
-      {
-        month: 0,
-        "Account 1": 1000,
-        "Another Acct": 100,
-        "Car Loan": 300,
-        Something: 1000,
-      },
-      {
-        month: 1,
-        "Account 1": 1000,
-        "Another Acct": 100,
-        "Car Loan": 300,
-        Something: 1000,
-      },
-      {
-        month: 2,
-        "Account 1": 1000,
-        "Another Acct": 100,
-        "Car Loan": 300,
-        Something: 1000,
-      },
-      {
-        month: 3,
-        "Account 1": 1000,
-        "Another Acct": 100,
-        "Car Loan": 300,
-        Something: 1000,
-      },
-      {
-        month: 4,
-        "Account 1": 900,
-        "Another Acct": 50,
-        "Car Loan": 0,
-        Something: 500,
-      },
-    ],
+const isPaidOff = (accounts) => {
+  let paidOff = true
+  accounts.forEach((acct) => {
+    if (acct.principal >= 0.005) {
+      paidOff = false
+    }
+  })
+
+  return paidOff
+}
+
+const sumOfPayments = (payments) => {
+  let totalPayment = 0
+  for (let acct in payments) {
+    const pmt = payments[acct]
+    totalPayment += pmt.payment
+  }
+  return totalPayment
+}
+
+const calculateMinimumPayments = (accts) => {
+  let minimums = {}
+  accts.forEach((acct) => {
+    minimums[acct.title] = calculateNextPayment(
+      acct.principal,
+      acct.interest / 12,
+      acct.payment
+    )
+  })
+  return minimums
+}
+
+const applyPayments = (accounts, payments) => {
+  let newAccounts = []
+  for (let acctName in payments) {
+    let acctForPayment = accounts.find((acct) => {
+      return acct.title === acctName
+    })
+    const pmt = payments[acctName]
+    newAccounts.push({ ...acctForPayment, principal: pmt.newPrincipal })
+  }
+  return newAccounts
+}
+
+const paydownDebts = (accounts, totalPayment) => {
+  const relevantAccounts = accounts.filter((acct) => {
+    return !acct.ignoreForPaydown
+  })
+  console.info(
+    `Caclulating paydown for ${
+      relevantAccounts.length
+    } accounts with payment of ${totalPayment}`
+  )
+  let sortedAccounts = sortAccountsByInterestRate(relevantAccounts)
+  let paydown = {
+    accounts: sortedAccounts.map((acct) => {
+      return acct.title
+    }),
+    payments: [],
+    principal: [],
   }
 
-  return tempData
+  while (!isPaidOff(sortedAccounts) && paydown.payments.length < 240) {
+    let currPayments = calculateMinimumPayments(sortedAccounts)
+    let extraPayment = totalPayment - sumOfPayments(currPayments)
+    if (extraPayment < -0.005) {
+      throw new Error(
+        "Total payment is not sufficient to cover minimum payments"
+      )
+    }
+
+    sortedAccounts.forEach((acct) => {
+      let account = currPayments[acct.title]
+      if (account.newPrincipal > 0.005) {
+        if (account.newPrincipal > extraPayment) {
+          account.newPrincipal = round(account.newPrincipal - extraPayment)
+          account.payment = round(account.payment + extraPayment)
+          account.principalPayment = round(
+            account.principalPayment + extraPayment
+          )
+          extraPayment = 0
+        } else {
+          account.payment = round(account.payment + account.newPrincipal)
+          account.principalPayment = round(
+            account.principalPayment + account.newPrincipal
+          )
+          extraPayment = round(extraPayment - account.newPrincipal)
+          account.newPrincipal = 0
+        }
+      }
+    })
+
+    let paymentsToReturn = {}
+    let principalToReturn = {}
+    sortedAccounts.forEach((acct) => {
+      paymentsToReturn[acct.title] = currPayments[acct.title].payment
+      principalToReturn[acct.title] = currPayments[acct.title].newPrincipal
+    })
+
+    paydown.payments.push(paymentsToReturn)
+    paydown.principal.push(principalToReturn)
+    sortedAccounts = applyPayments(sortedAccounts, currPayments)
+  }
+
+  return paydown
 }
 
 module.exports = {
