@@ -14,15 +14,21 @@ describe("loanCalculator", () => {
     })
 
     it("ignored account is ignored", () => {
-      const testAccountName = randomString()
       const accounts = [
         {
           id: randomString(),
-          title: testAccountName,
+          title: randomString(),
           principal: 100,
           interest: 0,
           payment: 20,
           ignoreForPaydown: true,
+        },
+        {
+          id: randomString(),
+          title: randomString(),
+          principal: 0,
+          interest: 0,
+          payment: 20,
         },
       ]
 

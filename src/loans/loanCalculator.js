@@ -95,7 +95,7 @@ const applyPayments = (accounts, payments) => {
 
 const paydownDebts = (accounts, totalPayment) => {
   const relevantAccounts = accounts.filter((acct) => {
-    return !acct.ignoreForPaydown
+    return !acct.ignoreForPaydown && acct.principal >= 0.005
   })
   console.info(
     `Caclulating paydown for ${
